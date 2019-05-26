@@ -1,65 +1,53 @@
 package com.github.shaad.filedownloader.downloader
 
-import java.nio.ByteBuffer
+import java.io.FileOutputStream
+import java.net.URI
+import java.nio.file.{Files, Path}
 
 import com.github.shaad.filedownloader._
-import monix.eval.Task
-import monix.execution.Ack
-import monix.execution.Ack.Continue
-import monix.reactive.{Consumer, Observer}
 
-import scala.reflect.io.File
+import scala.concurrent.{ExecutionContext, Future}
 
-trait UrlDownloader {
-  def download(url: String, resultFile: String): Task[FileDownloadResult]
+trait FileDownloader {
+  def download(url: URI, tempFile: Path, resultFile: Path)(implicit context: ExecutionContext): Future[FileDownloadResult]
 }
 
-abstract class UrlDownloaderBase extends UrlDownloader with WithLogger {
-  override def download(url: String, resultFile: String): Task[FileDownloadResult] = {
+abstract class FileDownloaderBase extends FileDownloader with WithLogger {
+  override final def download(url: URI, tempFile: Path, resultFile: Path)(implicit context: ExecutionContext): Future[FileDownloadResult] = {
     log.info(s"Downloading file from $url")
 
     getData(url)
       .flatMap {
         case Left(e) =>
           log.error(s"Failed to download file $url, {}", e)
-          Task.now(new DownloadFailed(e))
-        case Right(obs) =>
-          obs.data
-            .consumeWith(createConsumer(obs.contentLength, obs.acceptsContinuation, resultFile))
-            .doOnFinish({
-              case Some(e) => Task.now(log.error(s"Failed to download $url", e))
-              case None => Task.now(log.info("{} downloaded successfully", url))
-            })
+          Future(new DownloadFailed(e))
+        case Right(stream) =>
+          val writer = {
+            val file = tempFile.toFile
+            file.delete()
+            file.createNewFile()
+            new FileOutputStream(file)
+          }
+
+          def readStream(): Future[FileDownloadResult] =
+            stream.next().part.flatMap {
+              case Some(buf) =>
+                writer.write(buf.array())
+                readStream()
+              case None =>
+                writer.flush()
+                writer.close()
+                log.info("File {} downloaded successfully", url)
+                Future.apply {
+                  resultFile.toFile.delete()
+                  Files.move(tempFile, resultFile)
+                  DownloadSuccessful
+                }
+            }
+
+          readStream()
       }
   }
 
-  protected def getData(url: String): Task[Either[String, FileDownloadInfo]]
-
-  private def createConsumer(contentLength: Option[Long],
-                             acceptsContinuation: Boolean,
-                             resultFile: String) = {
-    Consumer.create[ByteBuffer, FileDownloadResult] { (_, _, callback) =>
-      new Observer.Sync[ByteBuffer] {
-        private lazy val file = File(resultFile).createFile()
-        private lazy val writer = file.outputStream()
-
-        def onNext(buffer: ByteBuffer): Ack = {
-          writer.write(buffer.array())
-          Continue
-        }
-
-        def onComplete(): Unit = {
-          writer.flush()
-          writer.close()
-          callback.onSuccess(new DownloadSuccessful())
-        }
-
-        def onError(ex: Throwable): Unit = {
-          writer.flush()
-          writer.close()
-          callback.onError(ex)
-        }
-      }
-    }
-  }
+  protected def getData(url: URI)(implicit context: ExecutionContext): Future[Either[DownloadError, FileStream]]
 }
