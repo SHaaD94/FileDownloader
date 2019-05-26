@@ -1,6 +1,7 @@
 package com.github.shaad.filedownloader.downloader
 
 import java.nio.ByteBuffer
+import java.util.concurrent.TimeUnit
 
 import com.github.shaad.filedownloader.FileDownloadInfo
 import com.softwaremill.sttp._
@@ -29,7 +30,7 @@ class HttpFileDownloader extends UrlDownloaderBase {
     sttp
       .get(uri"$url")
       .response(asStream[Observable[ByteBuffer]])
-      .readTimeout(Duration.Inf)
+      .readTimeout(Duration(30, TimeUnit.SECONDS))
       .send()
       .map(res => res.body match {
         case Left(value) => Left(value)

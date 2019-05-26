@@ -15,8 +15,7 @@ object Main extends App with WithLogger {
 
   val fileURLs =
     List(
-      "https://speed.hetzner.de/10MB.bin",
-      "https://speed.hetzner.de/1MB.bin",
+      "http://lhcb-reconstruction.web.cern.ch/lhcb-reconstruction/Augenblick/Pictures/72252_71060817_0_huge.jpg",
       "http://www.ovh.net/files/100Mio.dat",
       "https://speed.hetzner.de/100MB.bin"
     )
