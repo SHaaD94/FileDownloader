@@ -1,4 +1,4 @@
-package com.github.shaad.filedownloader.downloader
+package com.github.shaad.filedownloader.service
 
 import java.io.FileOutputStream
 import java.net.URI

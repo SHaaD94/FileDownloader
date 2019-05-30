@@ -1,4 +1,4 @@
-package com.github.shaad.filedownloader.downloader
+package com.github.shaad.filedownloader.service
 
 import java.io.InputStream
 import java.net.URI
@@ -11,11 +11,7 @@ import scala.annotation.tailrec
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.util.{ Failure, Success, Try }
 
-case class FileStreamPart(part: Future[Option[ByteBuffer]]) {
-  object FileStreamPart {
-    def apply(futureByteBuffer: Future[Option[ByteBuffer]]) = new FileStreamPart(futureByteBuffer)
-  }
-}
+case class FileStreamPart(part: Future[Option[ByteBuffer]])
 
 abstract class FileStream {
   def next(): FileStreamPart

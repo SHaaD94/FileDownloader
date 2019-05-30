@@ -1,4 +1,4 @@
-package com.github.shaad.filedownloader.downloader
+package com.github.shaad.filedownloader.service
 
 import java.io.InputStream
 import java.net.URI
@@ -29,7 +29,7 @@ class FtpFileDownloader extends FileDownloaderBase with WithLogger {
         }
       } match {
         case Success(stream) => stream
-        case Failure(error) => Left(new OtherError(error.getMessage))
+        case Failure(error) => Left(OtherError(error.getMessage))
       }
     }
   }

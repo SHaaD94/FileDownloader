@@ -5,7 +5,7 @@ import java.net.URI
 import java.nio.file.Paths
 import java.util.concurrent.Executors
 
-import com.github.shaad.filedownloader.downloader.{FtpFileDownloader, HttpFileDownloader}
+import com.github.shaad.filedownloader.service.{FtpFileDownloader, HttpFileDownloader}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -16,19 +16,15 @@ object Main extends App with WithLogger {
       |java -jar file_downloader.jar --temp-dir=absolute_path --result-dir=absolute_path urls
     """.stripMargin
 
-  val tempDir = args.filter(_.startsWith("--temp-dir=")) match {
+  def getParamOrExit(param:String) =args.filter(_.startsWith(param)) match {
     case r if r.length != 1 =>
       println(usage)
       System.exit(1).asInstanceOf[String]
     case r => r(0).split('=').last
   }
 
-  val resDir = args.filter(_.startsWith("--result-dir=")) match {
-    case r if r.length != 1 =>
-      println(usage)
-      System.exit(1).asInstanceOf[String]
-    case r => r(0).split('=').last
-  }
+  val tempDir = getParamOrExit("--temp-dir=")
+  val resDir = getParamOrExit("--result-dir=")
 
   new File(tempDir).mkdirs()
   new File(resDir).mkdirs()

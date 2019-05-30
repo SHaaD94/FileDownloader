@@ -1,4 +1,4 @@
-package com.github.shaad.filedownloader.downloader
+package com.github.shaad.filedownloader.service
 
 import java.io.InputStream
 import java.net.URI
@@ -19,7 +19,7 @@ class HttpFileDownloader extends FileDownloaderBase {
       val request = new Builder().get().url(url.toURL).build()
       client.newCall(request).execute() match {
         case res if res.code() == 404 => Left(FileNotFound)
-        case res if !res.isSuccessful => Left(new OtherError(res.body().string()))
+        case res if !res.isSuccessful => Left(OtherError(res.body().string()))
         case res => Right {
           FileStream.generate(
             res.body().byteStream(),
@@ -34,7 +34,7 @@ class HttpFileDownloader extends FileDownloaderBase {
       }
     } match {
       case Success(stream) => stream
-      case Failure(error) => Left(new OtherError(error.getMessage))
+      case Failure(error) => Left(OtherError(error.getMessage))
     }
   }
 
