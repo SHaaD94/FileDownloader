@@ -2,34 +2,39 @@ package com.github.shaad.filedownloader.downloader
 
 import java.io.InputStream
 import java.net.URI
-import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+import java.util.concurrent.atomic.{ AtomicLong, AtomicReference }
 
-import com.github.shaad.filedownloader.{DownloadError, FileNotFound, OtherError}
+import com.github.shaad.filedownloader.{ DownloadError, FileNotFound, OtherError }
 import okhttp3.OkHttpClient
 import okhttp3.Request.Builder
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.{ Failure, Success, Try }
 
 class HttpFileDownloader extends FileDownloaderBase {
   private val client = new OkHttpClient.Builder().build()
 
   override protected def getData(url: URI)(implicit context: ExecutionContext): Future[Either[DownloadError, FileStream]] = Future {
-    val request = new Builder().get().url(url.toURL).build()
-    client.newCall(request).execute() match {
-      case res if res.code() == 404 => Left(FileNotFound)
-      case res if !res.isSuccessful => Left(new OtherError(res.body().string()))
-      case res => Right {
-        FileStream.generate(
-          res.body().byteStream(),
-          res.header("Accept-Ranges") match {
-            case "bytes" => true
-            case _ => false
-          },
-          url,
-          log,
-          recover)
+    Try {
+      val request = new Builder().get().url(url.toURL).build()
+      client.newCall(request).execute() match {
+        case res if res.code() == 404 => Left(FileNotFound)
+        case res if !res.isSuccessful => Left(new OtherError(res.body().string()))
+        case res => Right {
+          FileStream.generate(
+            res.body().byteStream(),
+            res.header("Accept-Ranges") match {
+              case "bytes" => true
+              case _ => false
+            },
+            url,
+            log,
+            recover)
+        }
       }
+    } match {
+      case Success(stream) => stream
+      case Failure(error) => Left(new OtherError(error.getMessage))
     }
   }
 

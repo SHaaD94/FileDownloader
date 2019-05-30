@@ -1,4 +1,3 @@
-
 lazy val root = (project in file(".")).
   settings(
     inThisBuild(List(
@@ -17,3 +16,11 @@ lazy val root = (project in file(".")).
       "org.scalatest" %% "scalatest" % "3.0.5" % Test
     )
   )
+
+mainClass in assembly := some("com.github.shaad.filedownloader.Main")
+assemblyJarName := "file_downloader.jar"
+
+assemblyMergeStrategy in assembly := {
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case x => MergeStrategy.first
+}

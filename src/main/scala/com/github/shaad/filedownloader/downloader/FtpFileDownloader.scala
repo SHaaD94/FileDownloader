@@ -2,13 +2,13 @@ package com.github.shaad.filedownloader.downloader
 
 import java.io.InputStream
 import java.net.URI
-import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+import java.util.concurrent.atomic.{ AtomicLong, AtomicReference }
 
-import com.github.shaad.filedownloader.{DownloadError, FileNotFound, OtherError, WithLogger}
-import org.apache.commons.net.ftp.{FTP, FTPClient}
+import com.github.shaad.filedownloader.{ DownloadError, FileNotFound, OtherError, WithLogger }
+import org.apache.commons.net.ftp.{ FTP, FTPClient }
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.{ Failure, Success, Try }
 
 class FtpFileDownloader extends FileDownloaderBase with WithLogger {
   private val ftpClient = new FTPClient()
@@ -16,15 +16,20 @@ class FtpFileDownloader extends FileDownloaderBase with WithLogger {
   override protected def getData(uri: URI)(implicit context: ExecutionContext): Future[Either[DownloadError, FileStream]] = Future {
     connect(uri) match {
       case Left(e) => Left(e)
-      case _ => ftpClient.retrieveFileStream(uri.getPath) match {
-        case stream if stream == null => Left(FileNotFound)
-        case stream: InputStream => Right(
-          FileStream.generate(
-            stream,
-            supportsRanges = true,
-            uri,
-            log,
-            recover))
+      case _ => Try {
+        ftpClient.retrieveFileStream(uri.getPath) match {
+          case stream if stream == null => Left(FileNotFound)
+          case stream: InputStream => Right(
+            FileStream.generate(
+              stream,
+              supportsRanges = true,
+              uri,
+              log,
+              recover))
+        }
+      } match {
+        case Success(stream) => stream
+        case Failure(error) => Left(new OtherError(error.getMessage))
       }
     }
   }
@@ -37,7 +42,7 @@ class FtpFileDownloader extends FileDownloaderBase with WithLogger {
     }
 
     if (ftpClient.getReplyCode > 299) {
-      return Left(new OtherError(ftpClient.getReplyString))
+      return Left(OtherError(ftpClient.getReplyString))
     }
 
     if (uri.getUserInfo != null) {
@@ -48,7 +53,7 @@ class FtpFileDownloader extends FileDownloaderBase with WithLogger {
     }
 
     if (ftpClient.getReplyCode > 299) {
-      return Left(new OtherError(ftpClient.getReplyString))
+      return Left(OtherError(ftpClient.getReplyString))
     }
 
     ftpClient.enterLocalPassiveMode()

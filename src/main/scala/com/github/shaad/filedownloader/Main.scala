@@ -1,17 +1,21 @@
 package com.github.shaad.filedownloader
 
+import java.io.File
 import java.net.URI
 import java.nio.file.Paths
 import java.util.concurrent.Executors
 
-import com.github.shaad.filedownloader.downloader.{FtpFileDownloader, HttpFileDownloader}
+import com.github.shaad.filedownloader.downloader.{ FtpFileDownloader, HttpFileDownloader }
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.util.{ Failure, Success }
 
 object Main extends App with WithLogger {
   val tempDir = "/tmp/downloads/temp"
   val resDir = "/tmp/downloads/res"
+
+  new File(tempDir).mkdirs()
+  new File(resDir).mkdirs()
 
   val fileURLs =
     List(
@@ -25,8 +29,7 @@ object Main extends App with WithLogger {
       //      "http://www.ovh.net/files/1Gio.dat",
       //      "https://speed.hetzner.de/10GB.bin",
       //      "https://speed.hetzner.de/1GB.bin",
-      "https://speed.hetzner.de/100MB.bin"
-    )
+      "https://speed.hetzner.de/100MB.bin")
 
   implicit val context = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors() * 4))
 
@@ -41,23 +44,25 @@ object Main extends App with WithLogger {
       uri.getScheme match {
         case "http" | "https" => new HttpFileDownloader().download(uri, tempFile, resFile)
         case "ftp" | "ftps" => new FtpFileDownloader().download(uri, tempFile, resFile)
-        case _ => Future {
-          new OtherError(s"${uri.getScheme} is not supported")
-        }
+        case _ => Future(ProtocolNotSupported(uri.getScheme))
         // extend protocols here
       }
     })
 
-  val downloadFuture = Future.sequence(futures)
-
-  val failedDownloads = Await.result(downloadFuture, Duration.Inf).filter(_.isInstanceOf[DownloadFailed])
-
-  if (failedDownloads.nonEmpty) {
-    log.error(s"Failed to download ${failedDownloads.size} files")
-    System.exit(1)
-  } else {
-    log.info("All files downloaded successfully")
-    System.exit(0)
-  }
-
+  Future.sequence(futures)
+    .onComplete {
+      case Success(downloadedFiles) =>
+        val failedDownloads = downloadedFiles
+          .filter(_.isInstanceOf[DownloadFailed])
+        if (failedDownloads.nonEmpty) {
+          log.error(s"Failed to download ${failedDownloads.size} files")
+          System.exit(1)
+        } else {
+          log.info("All files downloaded successfully")
+          System.exit(0)
+        }
+      case Failure(exception) =>
+        log.error("Something went wrong", exception)
+        System.exit(1)
+    }
 }

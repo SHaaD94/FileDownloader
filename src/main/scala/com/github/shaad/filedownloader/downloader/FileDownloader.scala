@@ -2,11 +2,11 @@ package com.github.shaad.filedownloader.downloader
 
 import java.io.FileOutputStream
 import java.net.URI
-import java.nio.file.{Files, Path}
+import java.nio.file.{ Files, Path }
 
 import com.github.shaad.filedownloader._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ ExecutionContext, Future }
 
 trait FileDownloader {
   def download(url: URI, tempFile: Path, resultFile: Path)(implicit context: ExecutionContext): Future[FileDownloadResult]
@@ -19,8 +19,13 @@ abstract class FileDownloaderBase extends FileDownloader with WithLogger {
     getData(url)
       .flatMap {
         case Left(e) =>
-          log.error(s"Failed to download file $url, {}", e)
-          Future(new DownloadFailed(e))
+          log.error(s"Failed to download file $url, {}", e match {
+            case FileNotFound => "file does not exist"
+            case OtherError(errorText) => errorText
+            case unknownError => unknownError
+          })
+
+          Future(DownloadFailed(e))
         case Right(stream) =>
           val writer = {
             val file = tempFile.toFile
